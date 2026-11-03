@@ -16,7 +16,7 @@ Each [release](https://github.com/renderappio/renderapp-uploader/releases/latest
 
 - **Windows:** unzip and run `renderapp-uploader.exe`. The app isn't code-signed yet, so SmartScreen may ask you to confirm the first time.
 - **Linux:** extract the `.tar.gz` and run `renderapp-uploader`.
-- **macOS:** unzip and move **Renderapp Uploader** to Applications. It isn't notarised yet, so the first time, Control-click it and choose **Open**.
+- **macOS:** unzip and move **Renderapp Uploader** to Applications. It isn't notarised yet, so macOS blocks it the first time. Try to open it once, then choose **Open Anyway** under System Settings, Privacy & Security.
 
 `SHA256SUMS` in each release lists the checksum of every download.
 

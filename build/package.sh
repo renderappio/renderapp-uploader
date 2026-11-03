@@ -23,7 +23,8 @@ publish() {
 case $rid in
   win-*)
     publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none
-    pwsh -NoProfile -Command "Compress-Archive -Path '$out/*' -DestinationPath '$dist/$name.zip' -Force"
+    # pwsh can't read Git Bash's /d/... paths.
+    pwsh -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$out")\\*' -DestinationPath '$(cygpath -w "$dist")\\$name.zip' -Force"
     ;;
   linux-*)
     publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none
@@ -33,7 +34,7 @@ case $rid in
     # Not single-file: that unpacks its native libraries at run time, unsigned, and Apple
     # silicon refuses to load unsigned code. As a bundle, everything is signed in place.
     publish -p:DebugType=none
-    app=$root/out/$rid-app/Renderapp Uploader.app
+    app="$root/out/$rid-app/Renderapp Uploader.app"
     rm -rf "$root/out/$rid-app" && mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
     cp -R "$out/." "$app/Contents/MacOS/"
 
