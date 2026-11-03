@@ -1,10 +1,12 @@
 name: Release
 
-# A v* tag publishes a GitHub release with a download for every platform. Running it by hand
-# builds the same downloads as artifacts, without releasing.
+# A v* tag publishes a GitHub release with a download for every platform. Running it by hand, or
+# a pull request that changes the packaging, builds the same downloads without releasing.
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths: [build/**, .github/workflows/release.yml]
   workflow_dispatch:
 
 permissions:
