@@ -159,6 +159,7 @@ public sealed class MainViewModelTests : IDisposable
 
         Assert.Equal(Screen.Ready, model.Screen);
         Assert.Contains("carry on", model.Error);
+        Assert.Equal("", model.StatusText);
     }
 
     [AvaloniaFact]
@@ -185,6 +186,103 @@ public sealed class MainViewModelTests : IDisposable
 
         Assert.Equal(Screen.Start, model.Screen);
         Assert.Empty(model.Previews);
+    }
+
+    // Changing the layout or kind rebuilds in the background, so a test waits for it to settle.
+    private static async Task SettledAsync(MainViewModel model)
+    {
+        for (var tries = 0; model.IsBusy && tries < 500; tries++)
+        {
+            await Task.Delay(10);
+            Dispatcher.UIThread.RunJobs();
+        }
+        Assert.False(model.IsBusy);
+    }
+
+    [AvaloniaFact]
+    public async Task Changing_the_kind_twice_lands_on_the_last_choice()
+    {
+        var model = await OpenedAsync(fixtures.Folder("car_red_001.png", "car_red_002.png", "car_red_003.png"));
+        Assert.Contains("frames", model.DetailText);
+
+        model.Kind = ImportKind.StillsSequence;
+        model.Kind = ImportKind.Stills;
+        await SettledAsync(model);
+
+        Assert.Equal(ImportKind.Stills, model.Kind);
+        Assert.DoesNotContain("frames", model.DetailText);
+    }
+
+    [AvaloniaFact]
+    public async Task Publish_waits_while_the_folder_is_being_read()
+    {
+        var model = await OpenedAsync(fixtures.Folder("car_red_001.png", "car_red_002.png"));
+
+        model.Kind = ImportKind.Stills;
+
+        Assert.True(model.IsBusy);
+        Assert.False(model.PublishCommand.CanExecute(null));
+        await SettledAsync(model);
+        Assert.True(model.PublishCommand.CanExecute(null));
+    }
+
+    [AvaloniaFact]
+    public async Task Opening_something_else_mid_publish_is_ignored()
+    {
+        var model = await OpenedAsync(fixtures.Folder("car_red.png"));
+        var name = model.ProjectName;
+
+        var publishing = model.PublishCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        await model.OpenAsync(fixtures.Folder("bike_red.png", "bike_blue.png"));
+
+        Assert.Equal(Screen.Publishing, model.Screen);
+        Assert.Equal(name, model.ProjectName);
+        Assert.False(model.CanSignOut);
+        model.PublishCancelCommand.Execute(null);
+        await publishing;
+    }
+
+    [AvaloniaFact]
+    public async Task A_file_that_is_not_a_rio_is_turned_away()
+    {
+        var folder = fixtures.Folder("car_red.png");
+
+        var model = await OpenedAsync(Path.Combine(folder, "car_red.png"));
+
+        Assert.Equal(Screen.Start, model.Screen);
+        Assert.Contains(".rio", model.Error);
+    }
+
+    [AvaloniaFact]
+    public async Task Opening_an_encrypted_rio_can_be_cancelled_while_it_waits_for_sign_in()
+    {
+        var folder = fixtures.Folder("car_red.png");
+        var rio = Path.Combine(folder, "car.rio");
+        File.WriteAllText(rio, "ENCRYPTED:{}");
+        publisher.HoldDecrypt = true;
+        var model = new MainViewModel(publisher);
+
+        var opening = model.OpenAsync(rio);
+        for (var tries = 0; !model.BusyText.Contains("Sign in") && tries < 500; tries++) await Task.Delay(10);
+        Assert.True(model.IsBusy);
+        model.CancelOpenCommand.Execute(null);
+        await opening;
+
+        Assert.False(model.IsBusy);
+        Assert.Equal(Screen.Start, model.Screen);
+        Assert.Null(model.Error);
+    }
+
+    [AvaloniaFact]
+    public void Steps_spell_out_their_state()
+    {
+        var step = new StepViewModel("Upload");
+        Assert.Equal("Upload, not started", step.Description);
+        step.IsCurrent = true;
+        Assert.Equal("Upload, in progress", step.Description);
+        step.IsDone = true;
+        Assert.Equal("Upload, done", step.Description);
     }
 
     [Theory]

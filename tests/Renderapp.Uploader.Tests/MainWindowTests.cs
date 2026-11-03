@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Renderapp.Uploader.ViewModels;
 using Xunit;
@@ -32,5 +33,30 @@ public class MainWindowTests
         Assert.NotEqual(0, background >>> 24);
         Assert.NotEqual(0, dropZone >>> 24);
         Assert.NotEqual(background, dropZone);
+    }
+
+    [AvaloniaFact]
+    public async Task The_publish_shortcut_works_only_once_there_is_something_to_publish()
+    {
+        using var fixtures = new Fixtures();
+        var publisher = new FakePublisher();
+        var model = new MainViewModel(publisher);
+        var window = new MainWindow { DataContext = model };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.Control);
+        Assert.Empty(publisher.Published);
+
+        await model.OpenAsync(fixtures.Folder("car_red.png"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(window.FindControl<TextBox>("ProjectNameBox")!.IsFocused);
+
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.Control);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Single(publisher.Published);
+        Assert.Equal(Screen.Publishing, model.Screen);
+        Assert.True(window.FindControl<Button>("CancelPublishButton")!.IsFocused);
+        model.PublishCancelCommand.Execute(null);
     }
 }

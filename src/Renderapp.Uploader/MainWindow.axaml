@@ -24,11 +24,19 @@
         <Image Source="/Resources/Logo.ico" Width="28" Height="28" />
         <TextBlock Text="Renderapp Uploader" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
       </StackPanel>
-      <Button Grid.Column="2" Classes="ghost" Content="Sign out" Command="{Binding SignOutCommand}" IsVisible="{Binding IsSignedIn}"
+      <Button Grid.Column="2" Classes="ghost" Content="Sign out" Command="{Binding SignOutCommand}" IsVisible="{Binding CanSignOut}"
               ToolTip.Tip="Forget this computer's sign-in to Renderapp" />
     </Grid>
 
-    <Panel Grid.Row="1" Margin="28,20">
+    <Grid Grid.Row="1" Margin="28,20" RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Classes="banner info" Margin="0,0,0,12" IsVisible="{Binding IsBusy}">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <ProgressBar Width="80" IsIndeterminate="True" VerticalAlignment="Center" AutomationProperties.Name="Working" />
+        <TextBlock Grid.Column="1" Text="{Binding BusyText}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="12,0" />
+        <Button Grid.Column="2" Classes="ghost" Content="Cancel" Command="{Binding CancelOpenCommand}" />
+      </Grid>
+    </Border>
+    <Panel Grid.Row="1">
 
       <!-- Start: drop a folder or a rio -->
       <Border x:Name="DropZone" Classes="dropzone" IsVisible="{Binding IsStart}" DragDrop.AllowDrop="True">
@@ -44,8 +52,8 @@
             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
                        Text="Or a .rio file. Options, spins and views are worked out from your file and folder names, and Renderapp prepares everything for viewing once it's uploaded." />
             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,14,0,0">
-              <Button x:Name="ChooseFolderButton" Classes="accent" Content="Choose folder…" HotKey="Ctrl+O" Click="ChooseFolder" />
-              <Button x:Name="OpenRioButton" Content="Open .rio…" Click="OpenRio" />
+              <Button x:Name="ChooseFolderButton" Classes="accent" Content="Choose folder…" Click="ChooseFolder" IsEnabled="{Binding !IsBusy}" />
+              <Button x:Name="OpenRioButton" Content="Open .rio…" Click="OpenRio" IsEnabled="{Binding !IsBusy}" />
             </StackPanel>
             <Border Classes="banner error" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0,12,0,0">
               <TextBlock Text="{Binding Error}" TextWrapping="Wrap" />
@@ -61,8 +69,8 @@
             <Grid ColumnDefinitions="*,28,Auto">
               <StackPanel Spacing="20">
                 <StackPanel Spacing="4">
-                  <TextBlock Classes="label" Text="Project name" Margin="0" />
-                  <TextBox x:Name="ProjectNameBox" Text="{Binding ProjectName}" FontSize="18" PlaceholderText="Name it as it should appear in Renderapp" />
+                  <TextBlock x:Name="ProjectNameLabel" Classes="label" Text="Project name" Margin="0" />
+                  <TextBox x:Name="ProjectNameBox" AutomationProperties.LabeledBy="{Binding #ProjectNameLabel}" Text="{Binding ProjectName}" FontSize="18" PlaceholderText="Name it as it should appear in Renderapp" />
                 </StackPanel>
 
                 <StackPanel Spacing="4">
@@ -73,8 +81,8 @@
 
                 <StackPanel Spacing="14" IsVisible="{Binding CanChooseLayout}">
                   <StackPanel>
-                    <TextBlock Classes="label" Text="Options come from" />
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Layouts}" SelectedItem="{Binding Layout}">
+                    <TextBlock x:Name="LayoutLabel" Classes="label" Text="Options come from" />
+                    <ComboBox AutomationProperties.LabeledBy="{Binding #LayoutLabel}" HorizontalAlignment="Stretch" ItemsSource="{Binding Layouts}" SelectedItem="{Binding Layout}">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding Converter={x:Static vm:Labels.Instance}}" />
@@ -83,8 +91,8 @@
                     </ComboBox>
                   </StackPanel>
                   <StackPanel>
-                    <TextBlock Classes="label" Text="The images are" />
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind}">
+                    <TextBlock x:Name="KindLabel" Classes="label" Text="The images are" />
+                    <ComboBox AutomationProperties.LabeledBy="{Binding #KindLabel}" HorizontalAlignment="Stretch" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind}">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding Converter={x:Static vm:Labels.Instance}}" />
@@ -95,14 +103,14 @@
                 </StackPanel>
 
                 <StackPanel>
-                  <TextBlock Classes="label" Text="What changed (optional)" />
-                  <TextBox Text="{Binding VersionNote}" PlaceholderText="A note for this version, shown in Renderapp" />
+                  <TextBlock x:Name="NoteLabel" Classes="label" Text="What changed (optional)" />
+                  <TextBox AutomationProperties.LabeledBy="{Binding #NoteLabel}" Text="{Binding VersionNote}" PlaceholderText="A note for this version, shown in Renderapp" />
                 </StackPanel>
 
                 <Border Classes="banner warning" IsVisible="{Binding Warning, Converter={x:Static ObjectConverters.IsNotNull}}">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{Binding Warning}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Classes="ghost" Content="Find the files…" Click="FindFiles" Margin="12,0,0,0" />
+                    <Button Grid.Column="1" Classes="ghost" Content="Find the files…" Click="FindFiles" IsEnabled="{Binding !IsBusy}" Margin="12,0,0,0" />
                   </Grid>
                 </Border>
                 <Border Classes="banner info" IsVisible="{Binding Resumes}">
@@ -138,7 +146,7 @@
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
           <Button Classes="ghost" Content="Choose something else" Command="{Binding StartOverCommand}" />
           <Button Grid.Column="2" x:Name="PublishButton" Classes="accent" Padding="22,11"
-                  Content="Publish to Renderapp" Command="{Binding PublishCommand}" HotKey="Ctrl+Enter" />
+                  Content="Publish to Renderapp" Command="{Binding PublishCommand}" />
         </Grid>
       </Grid>
 
@@ -153,7 +161,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:StepViewModel">
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10" AutomationProperties.Name="{Binding Description}">
                   <Panel Width="24" Height="24">
                     <Ellipse Fill="{StaticResource SecondaryBrush}" />
                     <Ellipse Fill="{StaticResource BrandBrush}" IsVisible="{Binding IsDone}" />
@@ -169,13 +177,13 @@
 
           <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
           <StackPanel Spacing="8">
-            <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" />
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" AutomationProperties.Name="Upload progress" />
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Classes="muted" FontSize="12" Text="{Binding ProgressText}" />
               <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Text="{Binding SpeedText}" />
             </Grid>
           </StackPanel>
-          <Button HorizontalAlignment="Right" Content="Cancel" Command="{Binding PublishCancelCommand}"
+          <Button x:Name="CancelPublishButton" HorizontalAlignment="Right" Content="Cancel" Command="{Binding PublishCancelCommand}"
                   ToolTip.Tip="Stop for now. Publishing this folder again carries on where it stopped." />
         </StackPanel>
       </Border>
@@ -195,6 +203,7 @@
         </StackPanel>
       </Border>
     </Panel>
+    </Grid>
 
     <!-- Footer -->
     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="28,0,28,16">

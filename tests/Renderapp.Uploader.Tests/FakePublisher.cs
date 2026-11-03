@@ -42,8 +42,13 @@ internal sealed class FakePublisher : IPublisher
 
     public void Fail(Exception error) => pending!.SetException(error);
 
+    // Holds a decrypt the way a sign-in left open in the browser would.
+    public bool HoldDecrypt { get; set; }
+
     public Task<string> DecryptRioAsync(string encrypted, CancellationToken cancellation) =>
-        Task.FromResult(encrypted.Replace("ENCRYPTED:", ""));
+        HoldDecrypt
+            ? Task.Delay(Timeout.Infinite, cancellation).ContinueWith(_ => "", cancellation)
+            : Task.FromResult(encrypted.Replace("ENCRYPTED:", ""));
 
     public void SignOut()
     {

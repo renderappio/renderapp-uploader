@@ -14,9 +14,16 @@ public sealed partial class StepViewModel(string label) : ObservableObject
 {
     public string Label { get; } = label;
 
-    [ObservableProperty] public partial bool IsCurrent { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Description))]
+    public partial bool IsCurrent { get; set; }
 
-    [ObservableProperty] public partial bool IsDone { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Description))]
+    public partial bool IsDone { get; set; }
+
+    // The window shows a step's state only as colour, so screen readers get it spelled out.
+    public string Description => $"{Label}, {(IsDone ? "done" : IsCurrent ? "in progress" : "not started")}";
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -29,7 +36,9 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly Queue<(long At, long Bytes)> samples = new();
     private JObject? rio;
     private string? folder;
-    private bool rebuilding;
+    private bool applying;
+    private int generation;
+    private CancellationTokenSource? loading;
     private Destination? published;
 
     internal MainViewModel(IPublisher publisher, TimeProvider? clock = null)
@@ -40,10 +49,23 @@ public sealed partial class MainViewModel : ObservableObject
         IsSignedIn = publisher.IsSignedIn;
     }
 
-    [ObservableProperty] public partial bool IsSignedIn { get; private set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSignOut))]
+    public partial bool IsSignedIn { get; private set; }
+
+    public bool CanSignOut => IsSignedIn && !IsPublishing;
+
+    // Opening is only for the drop zone and the summary, never mid-publish or once done.
+    public bool CanOpen => Screen is Screen.Start or Screen.Ready;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsStart), nameof(IsReady), nameof(IsPublishing), nameof(IsPublished))]
+    [NotifyCanExecuteChangedFor(nameof(PublishCommand))]
+    public partial bool IsBusy { get; private set; }
+
+    [ObservableProperty] public partial string BusyText { get; private set; } = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStart), nameof(IsReady), nameof(IsPublishing), nameof(IsPublished), nameof(CanOpen), nameof(CanSignOut))]
     public partial Screen Screen { get; private set; } = Screen.Start;
 
     public bool IsStart => Screen == Screen.Start;
@@ -96,37 +118,83 @@ public sealed partial class MainViewModel : ObservableObject
     public Uri? PublishedUri => published is { } at ? new Uri(publisher.Host, $"/viewer/{at.ProjectId}/{at.Version}") : null;
 
     // A folder of images, or a .rio file.
-    public async Task OpenAsync(string path)
+    public Task OpenAsync(string path)
     {
+        if (!CanOpen) return Task.CompletedTask;
+        if (Directory.Exists(path)) return LoadAsync("Reading the folder…", (mine, cancel) => OpenFolderAsync(path, mine, cancel));
+        if (!File.Exists(path))
+        {
+            Error = $"Couldn't find {path}.";
+            return Task.CompletedTask;
+        }
+        if (!path.EndsWith(".rio", StringComparison.OrdinalIgnoreCase))
+        {
+            Error = "Drop the folder your renders are in, or a .rio file.";
+            return Task.CompletedTask;
+        }
+        return LoadAsync("Opening the project…", (mine, cancel) => OpenRioAsync(path, mine, cancel));
+    }
+
+    // Opens and rebuilds run one at a time: each takes a generation, a newer one cancels the
+    // last, and only the latest may change what the window shows.
+    private async Task LoadAsync(string busyText, Func<int, CancellationToken, Task> work)
+    {
+        loading?.Cancel();
+        var cancel = new CancellationTokenSource();
+        loading = cancel;
+        var mine = ++generation;
         Error = null;
+        BusyText = busyText;
+        IsBusy = true;
         try
         {
-            if (File.Exists(path)) await OpenRioAsync(path);
-            else if (Directory.Exists(path)) await OpenFolderAsync(path);
-            else Error = $"Couldn't find {path}.";
+            await work(mine, cancel.Token);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
-            Error = $"Couldn't read {Path.GetFileName(path)}: {error.Message}";
+        }
+        // This runs from a click or a drop, where an unhandled error would close the app.
+        catch (Exception error)
+        {
+            Trace.TraceError(error.ToString());
+            if (mine == generation) Error = error is IOException or UnauthorizedAccessException
+                ? $"Couldn't read that: {error.Message}"
+                : $"Couldn't open that: {error.Message}";
+        }
+        finally
+        {
+            if (mine == generation)
+            {
+                IsBusy = false;
+                BusyText = "";
+                IsSignedIn = publisher.IsSignedIn;
+            }
         }
     }
 
-    private async Task OpenFolderAsync(string path)
+    [RelayCommand]
+    private void CancelOpen() => loading?.Cancel();
+
+    private async Task OpenFolderAsync(string path, int mine, CancellationToken cancel)
     {
         path = Path.TrimEndingDirectorySeparator(path);
-        rebuilding = true;
-        Layout = await Task.Run(() => FolderImport.DetectLayout(path));
-        Kind = await Task.Run(() => FolderImport.DetectKind(path, Layout));
-        rebuilding = false;
+        var layout = await Task.Run(() => FolderImport.DetectLayout(path), cancel);
+        var kind = await Task.Run(() => FolderImport.DetectKind(path, layout), cancel);
+        var loaded = await Task.Run(() => FolderImport.Build(path, layout, kind), cancel);
+        if (mine != generation) return;
+        applying = true;
+        Layout = layout;
+        Kind = kind;
+        applying = false;
         folder = path;
         CanChooseLayout = true;
         ProjectName = Path.GetFileName(path);
-        await BuildAsync();
+        await ShowAsync(loaded, mine, cancel);
     }
 
-    private async Task OpenRioAsync(string path)
+    private async Task OpenRioAsync(string path, int mine, CancellationToken cancel)
     {
-        var text = await File.ReadAllTextAsync(path);
+        var text = await File.ReadAllTextAsync(path, cancel);
         JObject loaded;
         try
         {
@@ -135,35 +203,25 @@ public sealed partial class MainViewModel : ObservableObject
         catch (Newtonsoft.Json.JsonReaderException)
         {
             // Not JSON: an encrypted rio, which Renderapp decrypts for a signed-in person.
-            StatusText = "This rio is encrypted. Sign in to Renderapp in your browser to open it.";
-            try
-            {
-                loaded = JObject.Parse(await publisher.DecryptRioAsync(text, CancellationToken.None));
-            }
-            catch (Exception error) when (error is PublishException or HttpRequestException or Newtonsoft.Json.JsonReaderException)
-            {
-                StatusText = "";
-                Error = $"Couldn't open {Path.GetFileName(path)}: {error.Message}";
-                return;
-            }
-            finally
-            {
-                IsSignedIn = publisher.IsSignedIn;
-            }
-            StatusText = "";
+            BusyText = "This project is encrypted. Sign in to Renderapp in your browser to open it.";
+            loaded = JObject.Parse(await publisher.DecryptRioAsync(text, cancel));
         }
+        if (mine != generation) return;
         folder = null;
         CanChooseLayout = false;
         ProjectName = Path.GetFileNameWithoutExtension(path);
-        await ShowAsync(loaded);
+        await ShowAsync(loaded, mine, cancel);
     }
 
     // The folder chooser may also be needed for a rio whose files aren't where it says.
-    public async Task SetSourceFolderAsync(string path)
+    public Task SetSourceFolderAsync(string path)
     {
-        if (rio == null) return;
-        rio["CacheDir"] = Path.TrimEndingDirectorySeparator(path).Replace('\\', '/');
-        await ShowAsync(rio);
+        if (rio is not { } current || !CanOpen) return Task.CompletedTask;
+        return LoadAsync("Reading the folder…", (mine, cancel) =>
+        {
+            current["CacheDir"] = Path.TrimEndingDirectorySeparator(path).Replace('\\', '/');
+            return ShowAsync(current, mine, cancel);
+        });
     }
 
     partial void OnLayoutChanged(FolderLayout value) => Rebuild();
@@ -172,20 +230,18 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void Rebuild()
     {
-        if (!rebuilding && folder != null && Screen == Screen.Ready) _ = BuildAsync();
+        if (applying || folder is not { } path || Screen != Screen.Ready) return;
+        var (layout, kind) = (Layout, Kind);
+        _ = LoadAsync("Reading the folder…", async (mine, cancel) =>
+            await ShowAsync(await Task.Run(() => FolderImport.Build(path, layout, kind), cancel), mine, cancel));
     }
 
-    private async Task BuildAsync()
+    private async Task ShowAsync(JObject loaded, int mine, CancellationToken cancel)
     {
-        var (path, layout, kind) = (folder!, Layout, Kind);
-        await ShowAsync(await Task.Run(() => FolderImport.Build(path, layout, kind)));
-    }
-
-    private async Task ShowAsync(JObject loaded)
-    {
+        var summary = await Task.Run(() => FolderImport.Summarise(loaded), cancel);
+        if (mine != generation) return;
         rio = loaded;
         SourcePath = loaded["CacheDir"]?.Value<string>() ?? "";
-        var summary = await Task.Run(() => FolderImport.Summarise(loaded));
         SummaryText = summary.Images == 1 ? $"1 image · {Bytes(summary.Bytes)}" : $"{summary.Images:N0} images · {Bytes(summary.Bytes)}";
         DetailText = Detail(summary);
         Warning = summary switch
@@ -197,7 +253,7 @@ public sealed partial class MainViewModel : ObservableObject
         Resumes = SourcePath.Length > 0 && publisher.HasUnfinished(SourcePath);
         Screen = Screen.Ready;
         PublishCommand.NotifyCanExecuteChanged();
-        await LoadPreviewsAsync(loaded);
+        await LoadPreviewsAsync(loaded, mine, cancel);
     }
 
     private static string Detail(ProjectSummary summary)
@@ -208,16 +264,21 @@ public sealed partial class MainViewModel : ObservableObject
         return string.Join(" · ", parts);
     }
 
-    private async Task LoadPreviewsAsync(JObject loaded)
+    private async Task LoadPreviewsAsync(JObject loaded, int mine, CancellationToken cancel)
+    {
+        ClearPreviews();
+        foreach (var file in FolderImport.PreviewFiles(loaded, PreviewCount))
+        {
+            var bitmap = await Task.Run(() => DecodePreview(file), cancel);
+            if (mine != generation) { bitmap?.Dispose(); return; }
+            if (bitmap != null) Previews.Add(bitmap);
+        }
+    }
+
+    private void ClearPreviews()
     {
         foreach (var preview in Previews) preview.Dispose();
         Previews.Clear();
-        foreach (var file in FolderImport.PreviewFiles(loaded, PreviewCount))
-        {
-            var bitmap = await Task.Run(() => DecodePreview(file));
-            if (!ReferenceEquals(rio, loaded)) { bitmap?.Dispose(); return; }
-            if (bitmap != null) Previews.Add(bitmap);
-        }
     }
 
     // A preview that can't be decoded is left out rather than failing the screen.
@@ -234,11 +295,13 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private bool CanPublish() => rio != null && Screen == Screen.Ready && ProjectName.Trim().Length > 0 && Warning == null;
+    private bool CanPublish() => rio != null && Screen == Screen.Ready && !IsBusy && ProjectName.Trim().Length > 0 && Warning == null;
 
     [RelayCommand(CanExecute = nameof(CanPublish), IncludeCancelCommand = true)]
     private async Task PublishAsync(CancellationToken cancellation)
     {
+        loading?.Cancel();
+        generation++;
         Error = null;
         samples.Clear();
         Progress = 0;
@@ -252,6 +315,7 @@ public sealed partial class MainViewModel : ObservableObject
             published = await publisher.PublishAsync(rio!, ProjectName.Trim(), VersionNote.Trim(), Enter, progress, cancellation);
             foreach (var step in Steps) { step.IsDone = true; step.IsCurrent = false; }
             PublishedText = $"{ProjectName.Trim()}, version {published.Version}";
+            StatusText = "";
             OnPropertyChanged(nameof(PublishedUri));
             Screen = Screen.Published;
         }
@@ -282,6 +346,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void Stop(string message)
     {
         Error = message;
+        StatusText = "";
         Resumes = SourcePath.Length > 0 && publisher.HasUnfinished(SourcePath);
         Screen = Screen.Ready;
         PublishCommand.NotifyCanExecuteChanged();
@@ -299,7 +364,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             PublishStage.SigningIn => "Signing in. If your browser opens, sign in to Renderapp there.",
             PublishStage.ChoosingDestination => "Choose where this goes in your browser.",
-            _ => "Uploading the original files. Renderapp prepares them for viewing once they're in.",
+            _ => "Uploading the lossless files. Renderapp prepares them for viewing once they're in.",
         };
     }
 
@@ -322,8 +387,11 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void StartOver()
     {
-        foreach (var preview in Previews) preview.Dispose();
-        Previews.Clear();
+        loading?.Cancel();
+        generation++;
+        IsBusy = false;
+        ClearPreviews();
+        StatusText = "";
         rio = null;
         folder = null;
         published = null;

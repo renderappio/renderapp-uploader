@@ -1,7 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Renderapp.Uploader.ViewModels;
 
 namespace Renderapp.Uploader;
@@ -22,6 +24,49 @@ public partial class MainWindow : Window
     }
 
     private MainViewModel Model => (MainViewModel)DataContext!;
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (DataContext is MainViewModel model)
+            model.PropertyChanged += (_, change) =>
+            {
+                if (change.PropertyName == nameof(MainViewModel.Screen)) Dispatcher.UIThread.Post(FocusScreen, DispatcherPriority.Loaded);
+            };
+    }
+
+    // Each screen replaces the last, so keyboard and screen-reader focus would otherwise be
+    // left on a control that is no longer shown.
+    private void FocusScreen()
+    {
+        Control target = Model.Screen switch
+        {
+            Screen.Ready => ProjectNameBox,
+            Screen.Publishing => CancelPublishButton,
+            Screen.Published => OpenInRenderappButton,
+            _ => ChooseFolderButton,
+        };
+        target.Focus();
+    }
+
+    // Ctrl on Windows and Linux, Cmd on macOS. Checked here rather than as HotKeys, which fire
+    // even from screens where the button is hidden.
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        var command = Application.Current?.PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
+        if (e.Handled || e.KeyModifiers != command) return;
+        if (e.Key == Key.O && Model.CanOpen && !Model.IsBusy)
+        {
+            ChooseFolder(this, e);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && Model.PublishCommand.CanExecute(null))
+        {
+            Model.PublishCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
 
     private void SetDropping(DragEventArgs e, bool over)
     {

@@ -35,10 +35,19 @@ internal static class FolderImport
         return numbered && lastParts.Distinct().Count() >= 2 ? ImportKind.Spin : ImportKind.Stills;
     }
 
-    public static JObject Build(string folder, FolderLayout layout, ImportKind kind) =>
-        layout == FolderLayout.Folders
-            ? LoadFromFolder.LoadDirectory(folder, (int)kind)
-            : LoadFromFolder.LoadFilenames(folder, (int)kind);
+    // LoadFromFolder keeps its working state in statics, and a cancelled build can still be
+    // running when the next one starts.
+    private static readonly Lock Building = new();
+
+    public static JObject Build(string folder, FolderLayout layout, ImportKind kind)
+    {
+        lock (Building)
+        {
+            return layout == FolderLayout.Folders
+                ? LoadFromFolder.LoadDirectory(folder, (int)kind)
+                : LoadFromFolder.LoadFilenames(folder, (int)kind);
+        }
+    }
 
     public static ProjectSummary Summarise(JObject rio)
     {
