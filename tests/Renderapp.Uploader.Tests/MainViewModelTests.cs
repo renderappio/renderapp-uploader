@@ -214,6 +214,38 @@ public sealed class MainViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Cancelling_a_rebuild_keeps_the_choice_the_summary_was_built_from()
+    {
+        var model = await OpenedAsync(fixtures.Folder("car_red_001.png", "car_red_002.png", "car_red_003.png"));
+        var detail = model.DetailText;
+
+        model.Kind = ImportKind.Stills;
+        model.CancelOpenCommand.Execute(null);
+        await Task.Delay(200);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(model.IsBusy);
+        Assert.Equal(ImportKind.Spin, model.Kind);
+        Assert.Equal(detail, model.DetailText);
+        Assert.True(model.PublishCommand.CanExecute(null));
+    }
+
+    [AvaloniaFact]
+    public async Task Cancelling_an_open_from_the_summary_keeps_the_project_shown()
+    {
+        var model = await OpenedAsync(fixtures.Folder("car_red.png"));
+        var (name, source) = (model.ProjectName, model.SourcePath);
+
+        var opening = model.OpenAsync(fixtures.Folder("bike_red.png", "bike_blue.png"));
+        model.CancelOpenCommand.Execute(null);
+        await opening;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(name, model.ProjectName);
+        Assert.Equal(source, model.SourcePath);
+    }
+
+    [AvaloniaFact]
     public async Task Publish_waits_while_the_folder_is_being_read()
     {
         var model = await OpenedAsync(fixtures.Folder("car_red_001.png", "car_red_002.png"));

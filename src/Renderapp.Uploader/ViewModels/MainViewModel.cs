@@ -37,6 +37,7 @@ public sealed partial class MainViewModel : ObservableObject
     private JObject? rio;
     private string? folder;
     private bool applying;
+    private (FolderLayout Layout, ImportKind Kind) shown;
     private int generation;
     private CancellationTokenSource? loading;
     private Destination? published;
@@ -172,8 +173,26 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    // Work already running on the thread pool can't be stopped, so cancelling also retires its
+    // generation and whatever it returns is dropped.
     [RelayCommand]
-    private void CancelOpen() => loading?.Cancel();
+    private void CancelOpen()
+    {
+        loading?.Cancel();
+        generation++;
+        IsBusy = false;
+        BusyText = "";
+        // A cancelled rebuild leaves the pickers on a choice the shown build doesn't match.
+        Choose(shown.Layout, shown.Kind);
+    }
+
+    private void Choose(FolderLayout layout, ImportKind kind)
+    {
+        applying = true;
+        Layout = layout;
+        Kind = kind;
+        applying = false;
+    }
 
     private async Task OpenFolderAsync(string path, int mine, CancellationToken cancel)
     {
@@ -181,15 +200,14 @@ public sealed partial class MainViewModel : ObservableObject
         var layout = await Task.Run(() => FolderImport.DetectLayout(path), cancel);
         var kind = await Task.Run(() => FolderImport.DetectKind(path, layout), cancel);
         var loaded = await Task.Run(() => FolderImport.Build(path, layout, kind), cancel);
-        if (mine != generation) return;
-        applying = true;
-        Layout = layout;
-        Kind = kind;
-        applying = false;
-        folder = path;
-        CanChooseLayout = true;
-        ProjectName = Path.GetFileName(path);
-        await ShowAsync(loaded, mine, cancel);
+        await ShowAsync(loaded, mine, cancel, () =>
+        {
+            Choose(layout, kind);
+            shown = (layout, kind);
+            folder = path;
+            CanChooseLayout = true;
+            ProjectName = Path.GetFileName(path);
+        });
     }
 
     private async Task OpenRioAsync(string path, int mine, CancellationToken cancel)
@@ -206,11 +224,12 @@ public sealed partial class MainViewModel : ObservableObject
             BusyText = "This project is encrypted. Sign in to Renderapp in your browser to open it.";
             loaded = JObject.Parse(await publisher.DecryptRioAsync(text, cancel));
         }
-        if (mine != generation) return;
-        folder = null;
-        CanChooseLayout = false;
-        ProjectName = Path.GetFileNameWithoutExtension(path);
-        await ShowAsync(loaded, mine, cancel);
+        await ShowAsync(loaded, mine, cancel, () =>
+        {
+            folder = null;
+            CanChooseLayout = false;
+            ProjectName = Path.GetFileNameWithoutExtension(path);
+        });
     }
 
     // The folder chooser may also be needed for a rio whose files aren't where it says.
@@ -219,8 +238,9 @@ public sealed partial class MainViewModel : ObservableObject
         if (rio is not { } current || !CanOpen) return Task.CompletedTask;
         return LoadAsync("Reading the folder…", (mine, cancel) =>
         {
-            current["CacheDir"] = Path.TrimEndingDirectorySeparator(path).Replace('\\', '/');
-            return ShowAsync(current, mine, cancel);
+            var moved = (JObject)current.DeepClone();
+            moved["CacheDir"] = Path.TrimEndingDirectorySeparator(path).Replace('\\', '/');
+            return ShowAsync(moved, mine, cancel);
         });
     }
 
@@ -233,13 +253,15 @@ public sealed partial class MainViewModel : ObservableObject
         if (applying || folder is not { } path || Screen != Screen.Ready) return;
         var (layout, kind) = (Layout, Kind);
         _ = LoadAsync("Reading the folder…", async (mine, cancel) =>
-            await ShowAsync(await Task.Run(() => FolderImport.Build(path, layout, kind), cancel), mine, cancel));
+            await ShowAsync(await Task.Run(() => FolderImport.Build(path, layout, kind), cancel), mine, cancel, () => shown = (layout, kind)));
     }
 
-    private async Task ShowAsync(JObject loaded, int mine, CancellationToken cancel)
+    // Nothing is applied until the summary is in, so a superseded load changes nothing.
+    private async Task ShowAsync(JObject loaded, int mine, CancellationToken cancel, Action? apply = null)
     {
         var summary = await Task.Run(() => FolderImport.Summarise(loaded), cancel);
         if (mine != generation) return;
+        apply?.Invoke();
         rio = loaded;
         SourcePath = loaded["CacheDir"]?.Value<string>() ?? "";
         SummaryText = summary.Images == 1 ? $"1 image · {Bytes(summary.Bytes)}" : $"{summary.Images:N0} images · {Bytes(summary.Bytes)}";
