@@ -1,7 +1,7 @@
 # Renderapp uploader
 
 A desktop app for Windows, Linux and macOS that publishes renders to [Renderapp](https://renderapp.io).
-Load a `.rio` file, or build one from a folder of images, then choose **File → Publish to Renderapp**.
+Drop a folder of renders or a `.rio` file onto the window. The app works out the options, spins and views from your file and folder names, shows what it found, and publishes with **Publish to Renderapp**.
 
 Publishing works like this:
 

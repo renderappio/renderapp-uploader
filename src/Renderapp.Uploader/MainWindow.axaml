@@ -1,51 +1,206 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Renderapp.Uploader.ViewModels"
         x:Class="Renderapp.Uploader.MainWindow"
+        x:DataType="vm:MainViewModel"
         Title="Renderapp Uploader"
-        Width="1716" Height="1000"
-        WindowStartupLocation="CenterScreen">
-    <DockPanel>
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="File">
-                <MenuItem x:Name="newMenuItem" Header="New Project..." IsEnabled="False" />
-                <MenuItem x:Name="addVersionMenuItem" Header="Add Version ..." IsEnabled="False" />
-                <Separator />
-                <MenuItem x:Name="saveMenuItem" Header="Save" IsEnabled="False" />
-                <MenuItem x:Name="saveAsMenuItem" Header="Save as.." IsEnabled="False" />
-                <Separator />
-                <MenuItem x:Name="importMenuItem" Header="Import" IsEnabled="True">
-                    <MenuItem x:Name="importRioMenuItem" Header="Import Rio.." />
-                    <Separator />
-                    <MenuItem x:Name="importImagesStillMenuItem" Header="Images (Still)..." />
-                    <MenuItem x:Name="importFoldersStillMenuItem" Header="Folders (Still)..." />
-                    <Separator />
-                    <MenuItem x:Name="importImagesSpinMenuItem" Header="Images (Spin)..." />
-                    <MenuItem x:Name="importFoldersSpinMenuItem" Header="Folders (Spin)..." />
-                    <Separator />
-                    <MenuItem x:Name="importImagesStillsMenuItem" Header="Images (Stills)..." />
-                    <MenuItem x:Name="importFoldersStillsMenuItem" Header="Folders (Stills)..." />
-                </MenuItem>
-                <MenuItem x:Name="exportRioMenuItem" Header="Export to Rio..." IsEnabled="False" />
-                <Separator />
-                <MenuItem x:Name="publishMenuItem" Header="Publish to Renderapp..." IsEnabled="False" />
-                <MenuItem x:Name="cancelPublishMenuItem" Header="Cancel publishing" IsEnabled="False" />
-                <MenuItem x:Name="signOutMenuItem" Header="Sign out of Renderapp" />
-                <Separator />
-                <MenuItem x:Name="exitMenuItem" Header="Exit" />
-            </MenuItem>
-            <MenuItem Header="Help">
-                <MenuItem x:Name="discordMenuItem" Header="Discord" />
-            </MenuItem>
-        </Menu>
+        Icon="/Resources/Logo.ico"
+        Width="920" Height="680" MinWidth="680" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}">
 
-        <Border DockPanel.Dock="Bottom" Padding="8,4"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
-            <TextBlock x:Name="statusText" Text="Ready" />
-        </Border>
+  <!-- Path data: Material Symbols (Apache 2.0). -->
+  <Window.Resources>
+    <StreamGeometry x:Key="UploadIcon">M11 16V7.85l-2.6 2.6L7 9l5-5 5 5-1.4 1.45-2.6-2.6V16h-2Zm-5 4q-.825 0-1.412-.587Q4 18.825 4 18v-3h2v3h12v-3h2v3q0 .825-.587 1.413Q18.825 20 18 20H6Z</StreamGeometry>
+    <StreamGeometry x:Key="DoneIcon">M10.6 16.6l7.05-7.05-1.4-1.4-5.65 5.65-2.85-2.85-1.4 1.4 4.25 4.25ZM12 22q-2.075 0-3.9-.788-1.825-.787-3.175-2.137-1.35-1.35-2.137-3.175Q2 14.075 2 12t.788-3.9q.787-1.825 2.137-3.175 1.35-1.35 3.175-2.137Q9.925 2 12 2t3.9.788q1.825.787 3.175 2.137 1.35 1.35 2.137 3.175Q22 9.925 22 12t-.788 3.9q-.787 1.825-2.137 3.175-1.35 1.35-3.175 2.137Q14.075 22 12 22Z</StreamGeometry>
+    <StreamGeometry x:Key="CheckIcon">M9.55 18l-5.7-5.7 1.425-1.425L9.55 15.15l9.175-9.175L20.15 7.4Z</StreamGeometry>
+  </Window.Resources>
 
-        <Panel x:Name="contentArea" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
-            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Text="Renderapp Uploader" FontSize="24" Opacity="0.3" />
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Header -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="28,20,28,0">
+      <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <Image Source="/Resources/Logo.ico" Width="28" Height="28" />
+        <TextBlock Text="Renderapp Uploader" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+      </StackPanel>
+      <Button Grid.Column="2" Classes="ghost" Content="Sign out" Command="{Binding SignOutCommand}" IsVisible="{Binding IsSignedIn}"
+              ToolTip.Tip="Forget this computer's sign-in to Renderapp" />
+    </Grid>
+
+    <Panel Grid.Row="1" Margin="28,20">
+
+      <!-- Start: drop a folder or a rio -->
+      <Border x:Name="DropZone" Classes="dropzone" IsVisible="{Binding IsStart}" DragDrop.AllowDrop="True">
+        <Panel>
+          <Rectangle Stroke="{StaticResource SecondaryBrush}" StrokeThickness="2" StrokeDashArray="5,4"
+                     RadiusX="8" RadiusY="8" Margin="1" />
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="460">
+            <Border Width="64" Height="64" CornerRadius="32" Background="{StaticResource BrandWashBrush}"
+                    HorizontalAlignment="Center" Margin="0,0,0,8">
+              <PathIcon Data="{StaticResource UploadIcon}" Width="28" Height="28" Foreground="{StaticResource BrandBrush}" />
+            </Border>
+            <TextBlock Classes="title" Text="Drop a folder of renders here" HorizontalAlignment="Center" />
+            <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
+                       Text="Or a .rio file. Options, spins and views are worked out from your file and folder names, and Renderapp prepares everything for viewing once it's uploaded." />
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,14,0,0">
+              <Button x:Name="ChooseFolderButton" Classes="accent" Content="Choose folder…" HotKey="Ctrl+O" Click="ChooseFolder" />
+              <Button x:Name="OpenRioButton" Content="Open .rio…" Click="OpenRio" />
+            </StackPanel>
+            <Border Classes="banner error" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0,12,0,0">
+              <TextBlock Text="{Binding Error}" TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
         </Panel>
-    </DockPanel>
+      </Border>
+
+      <!-- Ready: what will be published. The actions stay in view however long the card gets. -->
+      <Grid x:Name="ReadyView" RowDefinitions="*,Auto" IsVisible="{Binding IsReady}">
+        <ScrollViewer>
+          <Border Classes="card" VerticalAlignment="Top">
+            <Grid ColumnDefinitions="*,28,Auto">
+              <StackPanel Spacing="20">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="label" Text="Project name" Margin="0" />
+                  <TextBox x:Name="ProjectNameBox" Text="{Binding ProjectName}" FontSize="18" PlaceholderText="Name it as it should appear in Renderapp" />
+                </StackPanel>
+
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding SummaryText}" FontWeight="SemiBold" />
+                  <TextBlock Classes="muted" Text="{Binding DetailText}" IsVisible="{Binding DetailText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  <TextBlock Classes="muted" FontSize="12" Text="{Binding SourcePath}" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding SourcePath}" />
+                </StackPanel>
+
+                <StackPanel Spacing="14" IsVisible="{Binding CanChooseLayout}">
+                  <StackPanel>
+                    <TextBlock Classes="label" Text="Options come from" />
+                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Layouts}" SelectedItem="{Binding Layout}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Converter={x:Static vm:Labels.Instance}}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Classes="label" Text="The images are" />
+                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Converter={x:Static vm:Labels.Instance}}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+                </StackPanel>
+
+                <StackPanel>
+                  <TextBlock Classes="label" Text="What changed (optional)" />
+                  <TextBox Text="{Binding VersionNote}" PlaceholderText="A note for this version, shown in Renderapp" />
+                </StackPanel>
+
+                <Border Classes="banner warning" IsVisible="{Binding Warning, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Warning}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="ghost" Content="Find the files…" Click="FindFiles" Margin="12,0,0,0" />
+                  </Grid>
+                </Border>
+                <Border Classes="banner info" IsVisible="{Binding Resumes}">
+                  <TextBlock TextWrapping="Wrap" Text="An earlier publish of this folder stopped part-way. Publishing carries on where it left off, in the same version." />
+                </Border>
+                <Border Classes="banner error" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  <TextBlock Text="{Binding Error}" TextWrapping="Wrap" />
+                </Border>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Width="296" Spacing="8" IsVisible="{Binding Previews.Count, Converter={x:Static vm:Labels.Any}}">
+                <TextBlock Classes="label" Text="Preview" Margin="0" />
+                <ItemsControl ItemsSource="{Binding Previews}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="8" LineSpacing="8" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Width="144" Height="90" CornerRadius="{StaticResource SmallRadius}" ClipToBounds="True"
+                              Background="{StaticResource InsetBrush}">
+                        <Image Source="{Binding}" Stretch="UniformToFill" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </ScrollViewer>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
+          <Button Classes="ghost" Content="Choose something else" Command="{Binding StartOverCommand}" />
+          <Button Grid.Column="2" x:Name="PublishButton" Classes="accent" Padding="22,11"
+                  Content="Publish to Renderapp" Command="{Binding PublishCommand}" HotKey="Ctrl+Enter" />
+        </Grid>
+      </Grid>
+
+      <!-- Publishing -->
+      <Border x:Name="PublishingView" Classes="card" IsVisible="{Binding IsPublishing}" VerticalAlignment="Center" MaxWidth="620">
+        <StackPanel Spacing="22">
+          <ItemsControl ItemsSource="{Binding Steps}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Rows="1" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:StepViewModel">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Panel Width="24" Height="24">
+                    <Ellipse Fill="{StaticResource SecondaryBrush}" />
+                    <Ellipse Fill="{StaticResource BrandBrush}" IsVisible="{Binding IsDone}" />
+                    <Ellipse Stroke="{StaticResource BrandBrush}" StrokeThickness="2" IsVisible="{Binding IsCurrent}" />
+                    <PathIcon Data="{StaticResource CheckIcon}" Width="14" Height="14" Foreground="#2B2B2B" IsVisible="{Binding IsDone}" />
+                  </Panel>
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+                             FontWeight="{Binding IsCurrent, Converter={x:Static vm:Labels.Weight}}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+          <StackPanel Spacing="8">
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="muted" FontSize="12" Text="{Binding ProgressText}" />
+              <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Text="{Binding SpeedText}" />
+            </Grid>
+          </StackPanel>
+          <Button HorizontalAlignment="Right" Content="Cancel" Command="{Binding PublishCancelCommand}"
+                  ToolTip.Tip="Stop for now. Publishing this folder again carries on where it stopped." />
+        </StackPanel>
+      </Border>
+
+      <!-- Published -->
+      <Border x:Name="PublishedView" Classes="card" IsVisible="{Binding IsPublished}" VerticalAlignment="Center" MaxWidth="520">
+        <StackPanel Spacing="12" HorizontalAlignment="Center">
+          <PathIcon Data="{StaticResource DoneIcon}" Width="56" Height="56" Foreground="{StaticResource BrandBrush}" Margin="0,0,0,6" />
+          <TextBlock Classes="title" Text="Published" HorizontalAlignment="Center" />
+          <TextBlock Classes="muted" Text="{Binding PublishedText}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+          <TextBlock Classes="muted" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                     Text="Renderapp is preparing it for viewing now. That can take a few minutes for a large project." />
+          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,12,0,0">
+            <Button x:Name="OpenInRenderappButton" Classes="accent" Content="Open in Renderapp" Click="OpenInRenderapp" />
+            <Button Content="Publish something else" Command="{Binding StartOverCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Panel>
+
+    <!-- Footer -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="28,0,28,16">
+      <TextBlock Classes="muted" FontSize="12" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis"
+                 IsVisible="{Binding !IsPublishing}" />
+      <Button Grid.Column="1" Classes="ghost" FontSize="12" Padding="8,4" Content="Get help" Click="GetHelp" />
+    </Grid>
+  </Grid>
 </Window>

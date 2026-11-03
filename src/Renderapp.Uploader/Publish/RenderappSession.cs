@@ -53,6 +53,8 @@ internal sealed class RenderappSession
 
     private string? Current() => accessToken != null && DateTimeOffset.UtcNow < accessTokenExpires ? accessToken : null;
 
+    public bool IsSignedIn => accessToken != null || File.Exists(storePath);
+
     public void SignOut()
     {
         accessToken = null;
