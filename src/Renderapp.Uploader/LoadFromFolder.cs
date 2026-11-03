@@ -225,7 +225,20 @@ internal class LoadFromFolder
         ArrayAt(rioJson, "Maps").Add(newMap);
 
     }
+    // The working state above is shared, so one build runs at a time, from whichever thread.
+    static readonly Lock Building = new();
+
     internal static JObject LoadFilenames(string folder, int type)
+    {
+        lock (Building) return BuildFromFilenames(folder, type);
+    }
+
+    internal static JObject LoadDirectory(string folder, int type)
+    {
+        lock (Building) return BuildFromDirectory(folder, type);
+    }
+
+    static JObject BuildFromFilenames(string folder, int type)
     {
         random = new Random(0);
         nameRulePairs.Clear();
@@ -294,7 +307,7 @@ internal class LoadFromFolder
 
         return rioJson;
     }
-    internal static JObject LoadDirectory(string folder, int type)
+    static JObject BuildFromDirectory(string folder, int type)
     {
         random = new Random(0);
         nameRulePairs.Clear();
