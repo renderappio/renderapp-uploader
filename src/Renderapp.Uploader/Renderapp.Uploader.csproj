@@ -19,4 +19,8 @@
     <AvaloniaResource Include="Resources\Logo.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Renderapp.Uploader.Tests" />
+  </ItemGroup>
+
 </Project>

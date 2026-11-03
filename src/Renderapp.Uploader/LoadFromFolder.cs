@@ -1,14 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using System.Collections;
-using System.Data;
-using System.Xml.Linq;
-using System.Reflection;
 
 namespace Renderapp.Uploader;
 
@@ -18,10 +8,16 @@ internal class LoadFromFolder
     static List<JObject> categories = new List<JObject>();
     static Dictionary<string, string> nameRulePairs = new Dictionary<string, string>();
     static Dictionary<string, JObject> ruleOptionPairs = new Dictionary<string, JObject>();
-    static JObject rioJson;
+    static JObject rioJson = new();
     static Random random = new Random(0);
     static List<string> frames = new List<string>();
-    static JObject animationOption;
+    static JObject animationOption = new();
+
+    static JArray ArrayAt(JToken node, string key) =>
+        node[key] as JArray ?? throw new InvalidDataException($"The rio being built has no {key} list.");
+
+    static string StringAt(JToken node, string key) =>
+        node[key]?.Value<string>() ?? throw new InvalidDataException($"The rio being built has no {key}.");
 
     static string GenerateUniqueRule()
     {
@@ -69,7 +65,7 @@ internal class LoadFromFolder
             newCategory["Group"] = $"+CAT{index}";
             newCategory["Options"] = new JArray(); ;
 
-            rioJson["Inputs"].Value<JArray>().Add(newCategory);
+            ArrayAt(rioJson, "Inputs").Add(newCategory);
             categories.Add(newCategory);
 
             return newCategory;
@@ -80,15 +76,15 @@ internal class LoadFromFolder
     static void CleanupJson()
     {
         List<string> rulesToKeep = new List<string>();
-        JArray inputs = rioJson["Inputs"].Value<JArray>();
-        JArray maps = rioJson["Maps"].Value<JArray>();
+        JArray inputs = ArrayAt(rioJson, "Inputs");
+        JArray maps = ArrayAt(rioJson, "Maps");
 
         List<JObject> optionsToKeep = new List<JObject>();
         List<JObject> categoriesToRemove = new List<JObject>();
         int categoryCount = 0;
         foreach (JObject category in inputs)
         {
-            JArray categoryOptions = category["Options"].Value<JArray>();
+            JArray categoryOptions = ArrayAt(category, "Options");
             if(categoryOptions.Count > 0)
             {
                 categoryCount++;
@@ -97,7 +93,7 @@ internal class LoadFromFolder
                 foreach (JObject option in categoryOptions)
                 {
                     optionsToKeep.Add(option);
-                    rulesToKeep.Add(option["FrontEndRule"].Value<string>());
+                    rulesToKeep.Add(StringAt(option, "FrontEndRule"));
                 }
             }
             else
@@ -114,7 +110,7 @@ internal class LoadFromFolder
         foreach(JObject option in optionsToKeep)
         {
             JArray newConditions = new JArray();
-            foreach(string condition in option["Conditions"].Value<JArray>())
+            foreach(string condition in ArrayAt(option, "Conditions").Values<string>().OfType<string>())
             {
                 string newCondition = "";
                 foreach(string rule in condition.Split("+"))
@@ -135,7 +131,7 @@ internal class LoadFromFolder
         foreach(JObject map in maps)
         {
             string newRules = "";
-            foreach(string rule in map["configuration"].Value<string>().Split("+"))
+            foreach(string rule in StringAt(map, "configuration").Split("+"))
             {
                 if (rulesToKeep.Contains($"+{rule}"))
                 {
@@ -149,34 +145,6 @@ internal class LoadFromFolder
             }
         }
     }
-    static string[] RecursiveFileSearch(string directoryPath)
-    {
-        // Get all files in the current directory
-        string[] files = Directory.GetFiles(directoryPath);
-
-        // Create an array to store file paths
-        string[] filePaths = new string[files.Length];
-
-        // Process each file
-        for (int i = 0; i < files.Length; i++)
-        {
-            // Replace backslashes with forward slashes
-            filePaths[i] = files[i].Replace('\\', '/');
-        }
-
-        // Recursively search in subdirectories
-        string[] subDirectories = Directory.GetDirectories(directoryPath);
-        foreach (string subDirectory in subDirectories)
-        {
-            string[] subDirectoryFilePaths = RecursiveFileSearch(subDirectory);
-
-            // Concatenate the current file paths with the subdirectory file paths
-            filePaths = filePaths.Concat(subDirectoryFilePaths).ToArray();
-        }
-
-        return filePaths;
-    }
-
     static void AddFile(string filename, string[] nameParts, int type)
     {
         int frame = 0;
@@ -191,7 +159,7 @@ internal class LoadFromFolder
                 {
                     frames.Add(nameParts[i]);
                     frame = frames.Count;
-                    animationOption["Frames"].Value<JArray>().Add(frame);
+                    ArrayAt(animationOption, "Frames").Add(frame);
                     if(type == 1)
                     {
                         completeRule = "+ANM" + completeRule;
@@ -222,15 +190,15 @@ internal class LoadFromFolder
                     option["BackEndRule"] = rule;
                     option["Defaults"] = new JArray();
                     option["Conditions"] = new JArray();
-                    option["Conditions"].Value<JArray>().Add(completeRule);
-                    category["Options"].Value<JArray>().Add(option);
+                    ArrayAt(option, "Conditions").Add(completeRule);
+                    ArrayAt(category, "Options").Add(option);
 
                     ruleOptionPairs.Add(rule, option);
                 }
                 else
                 {
                     bool exists = false;
-                    foreach (string condition in ruleOptionPairs[rule]["Conditions"].Value<JArray>())
+                    foreach (string condition in ArrayAt(ruleOptionPairs[rule], "Conditions").Values<string>().OfType<string>())
                     {
                         if (condition.Equals(completeRule))
                         {
@@ -241,7 +209,7 @@ internal class LoadFromFolder
 
                     // Debug.WriteLine($"{previousRule} {list}");
                     if (!exists)
-                        ruleOptionPairs[rule]["Conditions"].Value<JArray>().Add(completeRule);
+                        ArrayAt(ruleOptionPairs[rule], "Conditions").Add(completeRule);
                 }
 
                 completeRule += rule;
@@ -254,7 +222,7 @@ internal class LoadFromFolder
         newMap["depth"] = 0;
         newMap["frame"] = frame;
         newMap["filename"] = filename;
-        rioJson["Maps"].Value<JArray>().Add(newMap);
+        ArrayAt(rioJson, "Maps").Add(newMap);
 
     }
     internal static JObject LoadFilenames(string folder, int type)
@@ -282,7 +250,7 @@ internal class LoadFromFolder
             newCategory["Name"] = $"View";
             newCategory["Group"] = $"+VEW";
             newCategory["Options"] = new JArray(); ;
-            rioJson["Inputs"].Value<JArray>().Add(newCategory);
+            ArrayAt(rioJson, "Inputs").Add(newCategory);
             // categories.Add(newCategory);
 
             if (type == 1)
@@ -295,7 +263,7 @@ internal class LoadFromFolder
                 animationOption["Defaults"] = new JArray();
                 animationOption["Frames"] = new JArray();
                 animationOption["Conditions"] = new JArray();
-                newCategory["Options"].Value<JArray>().Add(animationOption);
+                ArrayAt(newCategory, "Options").Add(animationOption);
                 ruleOptionPairs.Add("+ANM", animationOption);
             }
             else
@@ -308,12 +276,12 @@ internal class LoadFromFolder
                 animationOption["Defaults"] = new JArray();
                 animationOption["Frames"] = new JArray();
                 animationOption["Conditions"] = new JArray();
-                newCategory["Options"].Value<JArray>().Add(animationOption);
+                ArrayAt(newCategory, "Options").Add(animationOption);
                 ruleOptionPairs.Add("+SLS", animationOption);
             }
         }
 
-        IEnumerable files = Directory.EnumerateFiles(folder, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".jpg") || s.EndsWith(".jpeg") || s.EndsWith(".png"));
+        IEnumerable<string> files = Directory.EnumerateFiles(folder, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".jpg") || s.EndsWith(".jpeg") || s.EndsWith(".png"));
         foreach (string file in files)
         {
             string relativePath = file.Replace(folder, "").Substring(1);
@@ -351,7 +319,7 @@ internal class LoadFromFolder
             newCategory["Name"] = $"View";
             newCategory["Group"] = $"+VEW";
             newCategory["Options"] = new JArray(); ;
-            rioJson["Inputs"].Value<JArray>().Add(newCategory);
+            ArrayAt(rioJson, "Inputs").Add(newCategory);
             // categories.Add(newCategory);
 
             if(type==1)
@@ -364,7 +332,7 @@ internal class LoadFromFolder
                 animationOption["Defaults"] = new JArray();
                 animationOption["Frames"] = new JArray();
                 animationOption["Conditions"] = new JArray();
-                newCategory["Options"].Value<JArray>().Add(animationOption);
+                ArrayAt(newCategory, "Options").Add(animationOption);
                 ruleOptionPairs.Add("+ANM", animationOption);
             }
             else
@@ -377,7 +345,7 @@ internal class LoadFromFolder
                 animationOption["Defaults"] = new JArray();
                 animationOption["Frames"] = new JArray();
                 animationOption["Conditions"] = new JArray();
-                newCategory["Options"].Value<JArray>().Add(animationOption);
+                ArrayAt(newCategory, "Options").Add(animationOption);
                 ruleOptionPairs.Add("+SLS", animationOption);
             }
         }
@@ -395,14 +363,6 @@ internal class LoadFromFolder
         CleanupJson();
         // File.WriteAllText($"{folder}__.rio", rioJson.ToString());
 
-        return rioJson;
-    }
-    internal static JObject ChangeMapFilenameExtToWebp(JObject rioJson)
-    {
-        foreach (JObject mapItem in rioJson["Maps"])
-        {
-            mapItem["filename"] = Path.ChangeExtension(mapItem["filename"].Value<string>(), ".webp");
-        }
         return rioJson;
     }
 }
