@@ -18,6 +18,12 @@ Needs a [.NET 10 SDK](https://dotnet.microsoft.com/download), 10.0.100 or a newe
 dotnet run --project src/Renderapp.Uploader
 ```
 
+The tests run the real window on Avalonia's headless platform, so they need no display:
+
+```sh
+dotnet test
+```
+
 To build a self-contained app for one platform, pick its runtime identifier, such as `win-x64`, `linux-x64` or `osx-arm64`:
 
 ```sh
