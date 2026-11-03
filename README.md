@@ -12,10 +12,16 @@ Publishing works like this:
 
 ## Build and run
 
-Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download) or later.
+Needs a [.NET 10 SDK](https://dotnet.microsoft.com/download), 10.0.100 or a newer 10.0 release, as `global.json` pins.
 
 ```sh
-dotnet run --project renderappio-visualiser
+dotnet run --project src/Renderapp.Uploader
+```
+
+To build a self-contained app for one platform, pick its runtime identifier, such as `win-x64`, `linux-x64` or `osx-arm64`:
+
+```sh
+dotnet publish src/Renderapp.Uploader -c Release -r linux-x64 --self-contained
 ```
 
 Set `RENDERAPP_URL` to point the app at another Renderapp instance, for example a local server.

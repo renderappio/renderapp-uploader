@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 // Encrypted rio files are decrypted by Renderapp (POST /api/v1/files/decrypt-rio-file), so the
 // key never ships in the app.

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 // The app's small JSON files under LocalApplicationData/Renderappio. Writes land whole or not at
 // all, and a file that can't be read counts as absent rather than blocking every later publish.

@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 internal sealed record UploadProgress(long BytesDone, long BytesTotal, int FilesDone, int FilesTotal);
 

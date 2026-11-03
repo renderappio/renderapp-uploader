@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 // OAuth 2.0 authorization code + PKCE (RFC 7636) for the public native client the server seeds as
 // `renderapp-visualiser`. The token must name the server as its audience (RFC 8707 `resource`),
