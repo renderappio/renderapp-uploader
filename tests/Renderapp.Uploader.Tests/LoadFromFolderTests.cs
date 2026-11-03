@@ -48,7 +48,14 @@ public sealed class LoadFromFolderTests : IDisposable
         Assert.Equal(RuleOf(rio, "car") + RuleOf(rio, "blue"), MapOf(rio, "car_blue.png")["configuration"]!.Value<string>());
         Assert.Equal(RuleOf(rio, "bike") + RuleOf(rio, "red"), MapOf(rio, "bike_red.jpg")["configuration"]!.Value<string>());
         Assert.All(Maps(rio), map => Assert.Equal(0, map["frame"]!.Value<int>()));
+
+        // An option lists the rule chains that lead to it.
+        Assert.Equal([RuleOf(rio, "bike"), RuleOf(rio, "car")], ConditionsOf(rio, "red").Order());
+        Assert.Equal([RuleOf(rio, "car")], ConditionsOf(rio, "blue"));
     }
+
+    private static IEnumerable<string> ConditionsOf(JObject rio, string name) =>
+        ((JArray)Options(rio).Single(option => (string?)option["Name"] == name)["Conditions"]!).Select(condition => (string)condition!);
 
     [Theory]
     [InlineData(1, "Spin", "Animation", "+ANM")]
@@ -90,6 +97,7 @@ public sealed class LoadFromFolderTests : IDisposable
         Assert.Equal(["paint/blue/front.png", "paint/red/front.png", "paint/red/side.png"], Maps(rio).Select(map => (string)map["filename"]!).Order());
         Assert.Equal(["Category 1", "Category 2", "Category 3"], Inputs(rio).Select(input => (string)input["Name"]!));
         Assert.Equal(RuleOf(rio, "paint") + RuleOf(rio, "red") + RuleOf(rio, "side"), MapOf(rio, "paint/red/side.png")["configuration"]!.Value<string>());
+        Assert.Equal([RuleOf(rio, "paint") + RuleOf(rio, "red")], ConditionsOf(rio, "side"));
     }
 
     [Fact]

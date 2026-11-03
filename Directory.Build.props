@@ -6,8 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- A newly published package advisory shouldn't break every build; it still shows. -->
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <!-- A newly published package advisory, or an unreachable advisory feed, shouldn't break
+         every build; both still show. -->
+    <WarningsNotAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</WarningsNotAsErrors>
     <Authors>Renderapp</Authors>
     <Copyright>Copyright (c) Renderapp</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
