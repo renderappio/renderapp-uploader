@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="renderappio_visualiser.MainWindow"
+        Title="Renderapp Uploader"
+        Width="1716" Height="1000"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="File">
+                <MenuItem x:Name="newMenuItem" Header="New Project..." IsEnabled="False" />
+                <MenuItem x:Name="addVersionMenuItem" Header="Add Version ..." IsEnabled="False" />
+                <Separator />
+                <MenuItem x:Name="saveMenuItem" Header="Save" IsEnabled="False" />
+                <MenuItem x:Name="saveAsMenuItem" Header="Save as.." IsEnabled="False" />
+                <Separator />
+                <MenuItem x:Name="importMenuItem" Header="Import" IsEnabled="True">
+                    <MenuItem x:Name="importRioMenuItem" Header="Import Rio.." />
+                    <Separator />
+                    <MenuItem x:Name="importImagesStillMenuItem" Header="Images (Still)..." />
+                    <MenuItem x:Name="importFoldersStillMenuItem" Header="Folders (Still)..." />
+                    <Separator />
+                    <MenuItem x:Name="importImagesSpinMenuItem" Header="Images (Spin)..." />
+                    <MenuItem x:Name="importFoldersSpinMenuItem" Header="Folders (Spin)..." />
+                    <Separator />
+                    <MenuItem x:Name="importImagesStillsMenuItem" Header="Images (Stills)..." />
+                    <MenuItem x:Name="importFoldersStillsMenuItem" Header="Folders (Stills)..." />
+                </MenuItem>
+                <MenuItem x:Name="exportRioMenuItem" Header="Export to Rio..." IsEnabled="False" />
+                <Separator />
+                <MenuItem x:Name="publishMenuItem" Header="Publish to Renderapp..." IsEnabled="False" />
+                <MenuItem x:Name="cancelPublishMenuItem" Header="Cancel publishing" IsEnabled="False" />
+                <MenuItem x:Name="signOutMenuItem" Header="Sign out of Renderapp" />
+                <Separator />
+                <MenuItem x:Name="exitMenuItem" Header="Exit" />
+            </MenuItem>
+            <MenuItem Header="Help">
+                <MenuItem x:Name="discordMenuItem" Header="Discord" />
+            </MenuItem>
+        </Menu>
+
+        <Border DockPanel.Dock="Bottom" Padding="8,4"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <TextBlock x:Name="statusText" Text="Ready" />
+        </Border>
+
+        <Panel x:Name="contentArea" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Text="Renderapp Uploader" FontSize="24" Opacity="0.3" />
+        </Panel>
+    </DockPanel>
+</Window>

@@ -1,0 +1,21 @@
+# Renderapp uploader
+
+A desktop app for Windows, Linux and macOS that publishes renders to [Renderapp](https://renderapp.io).
+Load a `.rio` file, or build one from a folder of images, then choose **File → Publish to Renderapp**.
+
+Publishing works like this:
+
+1. **Sign-in.** It signs you in through your browser, using OAuth 2.0 with PKCE and a loopback redirect. Renderapp asks you to allow the app, and to choose a studio if you are in several.
+2. **Destination.** Renderapp's own page opens so you can choose the project to publish into, or make a new one.
+3. **Upload.** The app uploads the base files only, and Renderapp makes every rendition. Uploads go straight to storage through requests Renderapp signs, with no storage credentials on your machine.
+4. **Resume.** An interrupted publish carries on where it stopped the next time you publish the same folder.
+
+## Build and run
+
+Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download) or later.
+
+```sh
+dotnet run --project renderappio-visualiser
+```
+
+Set `RENDERAPP_URL` to point the app at another Renderapp instance, for example a local server.
