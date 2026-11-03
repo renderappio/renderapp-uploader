@@ -12,7 +12,7 @@ Publishing works like this:
 
 ## Build and run
 
-Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) or later.
+Needs a [.NET 10 SDK](https://dotnet.microsoft.com/download), 10.0.100 or a newer 10.0 release, as `global.json` pins.
 
 ```sh
 dotnet run --project src/Renderapp.Uploader
