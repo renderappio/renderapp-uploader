@@ -50,7 +50,7 @@ public sealed class LoadFromFolderTests : IDisposable
         Assert.All(Maps(rio), map => Assert.Equal(0, map["frame"]!.Value<int>()));
 
         // An option lists the rule chains that lead to it.
-        Assert.Equal([RuleOf(rio, "bike"), RuleOf(rio, "car")], ConditionsOf(rio, "red").Order());
+        Assert.Equal(new[] { RuleOf(rio, "bike"), RuleOf(rio, "car") }.Order(), ConditionsOf(rio, "red").Order());
         Assert.Equal([RuleOf(rio, "car")], ConditionsOf(rio, "blue"));
     }
 

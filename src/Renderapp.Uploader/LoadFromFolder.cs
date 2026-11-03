@@ -294,7 +294,7 @@ internal class LoadFromFolder
             }
         }
 
-        IEnumerable<string> files = Directory.EnumerateFiles(folder, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".jpg") || s.EndsWith(".jpeg") || s.EndsWith(".png"));
+        IEnumerable<string> files = Directory.EnumerateFiles(folder, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".jpg") || s.EndsWith(".jpeg") || s.EndsWith(".png")).Order(StringComparer.Ordinal);
         foreach (string file in files)
         {
             string relativePath = file.Replace(folder, "").Substring(1);
@@ -363,7 +363,7 @@ internal class LoadFromFolder
             }
         }
 
-        IEnumerable<string> files = Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories).Where(s => s.EndsWith(".jpg") || s.EndsWith(".jpeg") || s.EndsWith(".png"));
+        IEnumerable<string> files = Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories).Where(s => s.EndsWith(".jpg") || s.EndsWith(".jpeg") || s.EndsWith(".png")).Order(StringComparer.Ordinal);
         var sortedFilesByNameLowercase = files.OrderBy(filePath => Path.GetFileName(filePath).ToLower());
         foreach (string file in sortedFilesByNameLowercase) {
             string relativePath = file.Replace("\\", "/").Replace(folder.Replace("\\", "/"), "").Substring(1);
