@@ -9,7 +9,7 @@ namespace Renderapp.Uploader;
 public partial class App : Application
 {
     // RENDERAPP_URL points the app at another instance, a local server for one.
-    private static readonly Uri Host = new(Environment.GetEnvironmentVariable("RENDERAPP_URL") ?? "https://beta.renderapp.io");
+    private static readonly Uri Host = new(Environment.GetEnvironmentVariable("RENDERAPP_URL") ?? "https://app.renderapp.io");
 
     public override void Initialize()
     {
