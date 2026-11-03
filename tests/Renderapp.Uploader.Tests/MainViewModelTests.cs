@@ -246,6 +246,22 @@ public sealed class MainViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Finding_the_files_for_an_empty_folder_opens_the_one_chosen()
+    {
+        var empty = fixtures.Folder();
+        Directory.CreateDirectory(empty);
+        var model = await OpenedAsync(empty);
+        Assert.NotNull(model.Warning);
+
+        var renders = fixtures.Folder("car_red.png", "car_blue.png");
+        await model.SetSourceFolderAsync(renders);
+
+        Assert.Null(model.Warning);
+        Assert.Equal(Path.GetFileName(renders), model.ProjectName);
+        Assert.True(model.PublishCommand.CanExecute(null));
+    }
+
+    [AvaloniaFact]
     public async Task Publish_waits_while_the_folder_is_being_read()
     {
         var model = await OpenedAsync(fixtures.Folder("car_red_001.png", "car_red_002.png"));

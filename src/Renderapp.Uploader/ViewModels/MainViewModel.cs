@@ -236,6 +236,8 @@ public sealed partial class MainViewModel : ObservableObject
     public Task SetSourceFolderAsync(string path)
     {
         if (rio is not { } current || !CanOpen) return Task.CompletedTask;
+        // A folder project has no file list of its own to re-point, so the chosen folder is opened afresh.
+        if (folder != null) return OpenAsync(path);
         return LoadAsync("Reading the folder…", (mine, cancel) =>
         {
             var moved = (JObject)current.DeepClone();
