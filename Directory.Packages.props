@@ -17,8 +17,8 @@
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.5" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.5" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <!-- 3.x: Avalonia.Headless.XUnit 12.1.5 is built against xunit.v3 3.2. -->
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- Not 4.x: Avalonia.Headless.XUnit 12.1.5 is built against xunit.v3 3.2. -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
 
