@@ -2,7 +2,117 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Renderapp.Uploader.App"
              RequestedThemeVariant="Dark">
-    <Application.Styles>
-        <FluentTheme />
-    </Application.Styles>
+
+  <!-- Renderapp's dark palette (renderappio src/app/app.css): neutrals at 13/17/20/25% lightness
+       and the brand cyan #5ac7f2. -->
+  <Application.Resources>
+    <Color x:Key="BrandColor">#5AC7F2</Color>
+    <SolidColorBrush x:Key="BackgroundBrush" Color="#2B2B2B" />
+    <SolidColorBrush x:Key="CardBrush" Color="#333333" />
+    <SolidColorBrush x:Key="SecondaryBrush" Color="#404040" />
+    <SolidColorBrush x:Key="InsetBrush" Color="#212121" />
+    <SolidColorBrush x:Key="HairlineBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="ForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#B3B3B3" />
+    <SolidColorBrush x:Key="BrandBrush" Color="{StaticResource BrandColor}" />
+    <SolidColorBrush x:Key="BrandWashBrush" Color="#1F5AC7F2" />
+    <SolidColorBrush x:Key="DestructiveBrush" Color="#F28B9F" />
+    <SolidColorBrush x:Key="DestructiveWashBrush" Color="#26F28B9F" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#F5A833" />
+    <SolidColorBrush x:Key="WarningWashBrush" Color="#26F5A833" />
+    <CornerRadius x:Key="Radius">8</CornerRadius>
+    <CornerRadius x:Key="SmallRadius">6</CornerRadius>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark"
+                               Accent="#5AC7F2"
+                               RegionColor="#2B2B2B"
+                               AltHigh="#2B2B2B"
+                               ChromeMedium="#333333"
+                               ChromeMediumLow="#2B2B2B"
+                               BaseHigh="#FFFFFF"
+                               BaseMedium="#B3B3B3" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{StaticResource Radius}" />
+      <Setter Property="Padding" Value="28" />
+    </Style>
+
+    <Style Selector="Border.banner">
+      <Setter Property="CornerRadius" Value="{StaticResource SmallRadius}" />
+      <Setter Property="Padding" Value="14,10" />
+    </Style>
+    <Style Selector="Border.banner.error">
+      <Setter Property="Background" Value="{StaticResource DestructiveWashBrush}" />
+    </Style>
+    <Style Selector="Border.banner.warning">
+      <Setter Property="Background" Value="{StaticResource WarningWashBrush}" />
+    </Style>
+    <Style Selector="Border.banner.info">
+      <Setter Property="Background" Value="{StaticResource BrandWashBrush}" />
+    </Style>
+
+    <Style Selector="Border.dropzone">
+      <Setter Property="Background" Value="{StaticResource CardBrush}" />
+      <Setter Property="CornerRadius" Value="{StaticResource Radius}" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.15" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.dropzone.over">
+      <Setter Property="Background" Value="{StaticResource BrandWashBrush}" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="{StaticResource SmallRadius}" />
+      <Setter Property="Padding" Value="16,9" />
+    </Style>
+    <Style Selector="Button.accent">
+      <Setter Property="Foreground" Value="#2B2B2B" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="TextBox, ComboBox">
+      <Setter Property="CornerRadius" Value="{StaticResource SmallRadius}" />
+      <Setter Property="Background" Value="{StaticResource InsetBrush}" />
+    </Style>
+
+    <Style Selector="ProgressBar">
+      <Setter Property="Height" Value="8" />
+      <Setter Property="MinHeight" Value="8" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="{StaticResource InsetBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+    </Style>
+  </Application.Styles>
 </Application>

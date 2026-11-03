@@ -1,291 +1,113 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Renderapp.Uploader.Publish;
+using Renderapp.Uploader.ViewModels;
 
 namespace Renderapp.Uploader;
 
+// The window's own jobs: the platform pickers, drag and drop, and opening links. Everything else
+// is the view model's.
 public partial class MainWindow : Window
 {
-    // RENDERAPP_URL points the app at another instance, a local server for one.
-    static readonly Uri host = new(Environment.GetEnvironmentVariable("RENDERAPP_URL") ?? "https://beta.renderapp.io");
-    static readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(10) };
-    readonly RenderappSession session = new(http, host);
-    JObject? currentRio;
-    string currentName = "";
-    CancellationTokenSource? publishing;
+    private static readonly Uri Help = new("https://discord.gg/s8BSKwuw");
 
     public MainWindow()
     {
         InitializeComponent();
-
-        // Menu events
-        exitMenuItem.Click += (s, e) => Close();
-        discordMenuItem.Click += (s, e) => VisitURL("https://discord.gg/s8BSKwuw");
-
-        importRioMenuItem.Click += async (s, e) => await ImportRioFile();
-        importImagesStillMenuItem.Click += async (s, e) => await FilesToRio(0);
-        importFoldersStillMenuItem.Click += async (s, e) => await DirectoryToRio(0);
-        importImagesSpinMenuItem.Click += async (s, e) => await FilesToRio(1);
-        importFoldersSpinMenuItem.Click += async (s, e) => await DirectoryToRio(1);
-        importImagesStillsMenuItem.Click += async (s, e) => await FilesToRio(2);
-        importFoldersStillsMenuItem.Click += async (s, e) => await DirectoryToRio(2);
-        exportRioMenuItem.Click += async (s, e) => { /* TODO: needs data from UI */ };
-        saveMenuItem.Click += (s, e) => { /* TODO: needs native UI */ };
-        saveAsMenuItem.Click += (s, e) => { /* TODO: needs native UI */ };
-        newMenuItem.Click += (s, e) => { /* TODO: needs native UI */ };
-        addVersionMenuItem.Click += (s, e) => { /* TODO: needs native UI */ };
-        publishMenuItem.Click += async (s, e) => await PublishAsync();
-        cancelPublishMenuItem.Click += (s, e) => publishing?.Cancel();
-        signOutMenuItem.Click += (s, e) =>
-        {
-            session.SignOut();
-            UpdateStatus("Signed out of Renderapp.");
-        };
+        DropZone.AddHandler(DragDrop.DragEnterEvent, (_, e) => SetDropping(e, true));
+        DropZone.AddHandler(DragDrop.DragOverEvent, (_, e) => SetDropping(e, true));
+        DropZone.AddHandler(DragDrop.DragLeaveEvent, (_, e) => SetDropping(e, false));
+        DropZone.AddHandler(DragDrop.DropEvent, Dropped);
     }
 
-    private void Load(JObject rio, string name)
-    {
-        currentRio = rio;
-        currentName = name;
-        publishMenuItem.IsEnabled = publishing == null;
-    }
+    private MainViewModel Model => (MainViewModel)DataContext!;
 
-    private async Task PublishAsync()
+    protected override void OnDataContextChanged(EventArgs e)
     {
-        if (currentRio is not { } rio || publishing != null) return;
-        var name = currentName;
-        var cacheDir = rio["CacheDir"]?.Value<string>();
-        if (string.IsNullOrEmpty(cacheDir) || !Directory.Exists(cacheDir))
-        {
-            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        base.OnDataContextChanged(e);
+        if (DataContext is MainViewModel model)
+            model.PropertyChanged += (_, change) =>
             {
-                Title = "Select the folder holding this project's files"
-            });
-            if (folders.Count == 0 || publishing != null) return;
-            rio["CacheDir"] = Path.TrimEndingDirectorySeparator(folders[0].Path.LocalPath).Replace("\\", "/");
-        }
-
-        using var cancel = new CancellationTokenSource();
-        publishing = cancel;
-        publishMenuItem.IsEnabled = false;
-        cancelPublishMenuItem.IsEnabled = true;
-        try
-        {
-            var progress = new Progress<UploadProgress>(p => UpdateStatus(
-                $"Uploading: {p.FilesDone} of {p.FilesTotal} files, {p.BytesDone / 1048576} of {p.BytesTotal / 1048576} MB"));
-            var destination = await new Publisher(http, host, session).PublishAsync(rio, name, stage => UpdateStatus(stage switch
-            {
-                PublishStage.SigningIn => "Signing in to Renderapp. If your browser opens, sign in there.",
-                PublishStage.ChoosingDestination => "Choose where to publish in your browser.",
-                _ => "Uploading.",
-            }), progress, cancel.Token);
-            UpdateStatus("Published. Renderapp is preparing it now.");
-            VisitURL(new Uri(host, $"/viewer/{destination.ProjectId}/{destination.Version}").AbsoluteUri);
-        }
-        catch (PublishException error)
-        {
-            UpdateStatus(error.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            UpdateStatus("Publishing cancelled. Publish again to carry on where it stopped.");
-        }
-        catch (HttpRequestException)
-        {
-            UpdateStatus("Couldn't reach Renderapp. Publish again to carry on where it stopped.");
-        }
-        // This runs from a menu click, where an unhandled error would close the app.
-        catch (Exception error)
-        {
-            Trace.TraceError(error.ToString());
-            UpdateStatus($"Publishing failed: {error.Message}");
-        }
-        finally
-        {
-            publishing = null;
-            publishMenuItem.IsEnabled = true;
-            cancelPublishMenuItem.IsEnabled = false;
-        }
+                if (change.PropertyName == nameof(MainViewModel.Screen)) Dispatcher.UIThread.Post(FocusScreen, DispatcherPriority.Loaded);
+            };
     }
 
-    // Utilities
-
-    private void UpdateStatus(string message)
+    // Each screen replaces the last, so keyboard and screen-reader focus would otherwise be
+    // left on a control that is no longer shown.
+    private void FocusScreen()
     {
-        Dispatcher.UIThread.Post(() => statusText.Text = message);
-    }
-
-    private void VisitURL(string url)
-    {
-        try
+        Control target = Model.Screen switch
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                Process.Start("xdg-open", url);
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                Process.Start("open", url);
-        }
-    }
-
-    private string ReturnContentType(string imageURL)
-    {
-        string extension = Path.GetExtension(imageURL);
-        return extension switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".gif" => "image/gif",
-            _ => "application/octet-stream"
+            Screen.Ready => ProjectNameBox,
+            Screen.Publishing => CancelPublishButton,
+            Screen.Published => OpenInRenderappButton,
+            _ => ChooseFolderButton,
         };
+        target.Focus();
     }
 
-    // File operations
+    // Ctrl on Windows and Linux, Cmd on macOS. Checked here rather than as HotKeys, which fire
+    // even from screens where the button is hidden.
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        var command = Application.Current?.PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
+        if (e.Handled || e.KeyModifiers != command) return;
+        if (e.Key == Key.O && Model.CanOpen && !Model.IsBusy)
+        {
+            ChooseFolder(this, e);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && Model.PublishCommand.CanExecute(null))
+        {
+            Model.PublishCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
 
-    private async Task ImportRioFile()
+    private void SetDropping(DragEventArgs e, bool over)
+    {
+        var files = over && e.DataTransfer.TryGetFiles() is { Length: > 0 };
+        e.DragEffects = files ? DragDropEffects.Copy : DragDropEffects.None;
+        DropZone.Classes.Set("over", files);
+    }
+
+    private async void Dropped(object? sender, DragEventArgs e)
+    {
+        DropZone.Classes.Set("over", false);
+        if (e.DataTransfer.TryGetFiles() is [var first, ..] && first.TryGetLocalPath() is { } path)
+            await Model.OpenAsync(path);
+    }
+
+    private async void ChooseFolder(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Choose a folder of renders" });
+        if (folders is [var folder, ..] && folder.TryGetLocalPath() is { } path) await Model.OpenAsync(path);
+    }
+
+    private async void OpenRio(object? sender, RoutedEventArgs e)
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import Renderapp.io file",
-            FileTypeFilter = new[]
-            {
-                new FilePickerFileType("Renderapp.io File") { Patterns = new[] { "*.rio" } },
-                new FilePickerFileType("All files") { Patterns = new[] { "*" } }
-            }
+            Title = "Open a .rio file",
+            FileTypeFilter = [new FilePickerFileType("Renderapp project") { Patterns = ["*.rio"] }, FilePickerFileTypes.All],
         });
-
-        if (files.Count > 0)
-        {
-            string filePath = files[0].Path.LocalPath;
-            string datastring = File.ReadAllText(filePath);
-            JObject data;
-            try
-            {
-                data = JObject.Parse(datastring);
-            }
-            catch (Newtonsoft.Json.JsonReaderException)
-            {
-                // Not JSON: an encrypted rio, which Renderapp decrypts for a signed-in person.
-                try
-                {
-                    UpdateStatus("This rio is encrypted. Sign in to Renderapp to open it.");
-                    data = JObject.Parse(await RioDecryption.DecryptAsync(http, host, session, datastring, CancellationToken.None));
-                }
-                catch (Exception error) when (error is PublishException or HttpRequestException or Newtonsoft.Json.JsonReaderException)
-                {
-                    UpdateStatus($"Couldn't open {Path.GetFileName(filePath)}: {error.Message}");
-                    return;
-                }
-            }
-            Load(data, Path.GetFileNameWithoutExtension(filePath));
-            UpdateStatus($"Imported: {Path.GetFileName(filePath)}");
-        }
+        if (files is [var file, ..] && file.TryGetLocalPath() is { } path) await Model.OpenAsync(path);
     }
 
-    private async Task FilesToRio(int type)
+    private async void FindFiles(object? sender, RoutedEventArgs e)
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Select folder with images"
-        });
-
-        if (folders.Count > 0)
-        {
-            string folderPath = Path.TrimEndingDirectorySeparator(folders[0].Path.LocalPath);
-            JObject data = LoadFromFolder.LoadFilenames(folderPath, type);
-            Load(data, Path.GetFileName(folderPath));
-            UpdateStatus($"Loaded {data["Maps"]?.Count() ?? 0} files from {Path.GetFileName(folderPath)}");
-        }
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Choose the folder holding this project's files" });
+        if (folders is [var folder, ..] && folder.TryGetLocalPath() is { } path) await Model.SetSourceFolderAsync(path);
     }
 
-    private async Task DirectoryToRio(int type)
+    private async void OpenInRenderapp(object? sender, RoutedEventArgs e)
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Select folder with image directories"
-        });
-
-        if (folders.Count > 0)
-        {
-            string folderPath = Path.TrimEndingDirectorySeparator(folders[0].Path.LocalPath);
-            JObject data = LoadFromFolder.LoadDirectory(folderPath, type);
-            Load(data, Path.GetFileName(folderPath));
-            UpdateStatus($"Loaded {data["Maps"]?.Count() ?? 0} files from {Path.GetFileName(folderPath)}");
-        }
+        if (Model.PublishedUri is { } uri) await Launcher.LaunchUriAsync(uri);
     }
 
-    private async Task ExportRioFile(JObject data)
-    {
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Export Renderapp.io file",
-            FileTypeChoices = new[]
-            {
-                new FilePickerFileType("Renderapp.io File") { Patterns = new[] { "*.rio" } },
-                new FilePickerFileType("All files") { Patterns = new[] { "*" } }
-            }
-        });
-
-        if (file != null)
-        {
-            File.WriteAllText(file.Path.LocalPath, data.ToString());
-            UpdateStatus("Export complete!");
-        }
-    }
-
-    private async Task SetCache()
-    {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Select cache directory"
-        });
-
-        if (folders.Count > 0)
-        {
-            string cachePath = Path.TrimEndingDirectorySeparator(folders[0].Path.LocalPath).Replace("\\", "/");
-            UpdateStatus($"Cache set to: {cachePath}");
-        }
-    }
-
-    internal void ImagesToBase64(JObject data)
-    {
-        string folderPath = data["cache"]!.Value<string>()!;
-        JObject ImageUrlsPerFrame = data["imageURLsPerFrame"]!.Value<JObject>()!;
-        JObject ImageDataPerFrame = new JObject();
-        foreach (var obj in ImageUrlsPerFrame)
-        {
-            string key = obj.Key;
-            JArray ImageURLs = (obj.Value as JArray)!;
-            JArray ImageData = new JArray();
-
-            for (int i = 0; i < ImageURLs.Count; i++)
-            {
-                string ImageURL = Path.Combine(folderPath, ImageURLs[i]!.Value<string>()!);
-                if (File.Exists(ImageURL))
-                {
-                    byte[] imageBytes = File.ReadAllBytes(ImageURL);
-                    ImageData.Insert(i, $"data:{ReturnContentType(ImageURL)};base64,{Convert.ToBase64String(imageBytes)}");
-                }
-                else
-                {
-                    ImageData.Insert(i, "");
-                }
-            }
-
-            ImageDataPerFrame[key] = ImageData;
-        }
-    }
+    private async void GetHelp(object? sender, RoutedEventArgs e) => await Launcher.LaunchUriAsync(Help);
 }
