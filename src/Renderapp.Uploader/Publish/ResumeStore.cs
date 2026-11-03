@@ -1,4 +1,4 @@
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 internal sealed class MultipartUpload
 {

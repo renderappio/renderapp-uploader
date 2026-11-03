@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="renderappio_visualiser.MainWindow"
+        x:Class="Renderapp.Uploader.MainWindow"
         Title="Renderapp Uploader"
         Width="1716" Height="1000"
         WindowStartupLocation="CenterScreen">

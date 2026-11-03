@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Web;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 // One browser round trip to a page that sends the browser back to us. RFC 8252 §7.3: an IP
 // literal, never "localhost", on whatever port is free. A bare socket rather than HttpListener,

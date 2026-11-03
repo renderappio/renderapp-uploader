@@ -1,6 +1,6 @@
 using Newtonsoft.Json.Linq;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 internal enum PublishStage { SigningIn, ChoosingDestination, Uploading }
 

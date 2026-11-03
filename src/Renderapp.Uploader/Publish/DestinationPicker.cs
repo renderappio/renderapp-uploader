@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace renderappio_visualiser.Publish;
+namespace Renderapp.Uploader.Publish;
 
 internal sealed record Destination(string ProjectId, int Version, string WorkspaceId);
 
